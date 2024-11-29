@@ -1,194 +1,88 @@
-class ChessPiece:
-    def __init__(self, color, name, symbol):
-        self.color = color
-        self.name = name
-        self.symbol = symbol
-        self.has_moved = False
+import tkinter as tk
+import chess
+import chess.svg
 
-    def __repr__(self):
-        return self.symbol
+# Create a main window
+root = tk.Tk()
+root.title("Chess Game")
 
+# Initialize the chess board and game
+board = chess.Board()
 
-class King(ChessPiece):
-    def __init__(self, color):
-        symbol = "♔" if color == "white" else "♚"
-        super().__init__(color, "king", symbol)
+# Set up the tkinter canvas
+canvas = tk.Canvas(root, width=480, height=480)
+canvas.pack()
 
+# Mapping from chess notation to pixel positions on the board
+square_size = 60  # size of each square on the board
+piece_images = {}
 
-class Rook(ChessPiece):
-    def __init__(self, color):
-        symbol = "♖" if color == "white" else "♜"
-        super().__init__(color, "rook", symbol)
+# Initialize the images for the chess pieces
+def load_images():
+    global piece_images
+    piece_images = {
+        'P': tk.PhotoImage(file="images/wp.png"),
+        'p': tk.PhotoImage(file="images/bp.png"),
+        'R': tk.PhotoImage(file="images/wr.png"),
+        'r': tk.PhotoImage(file="images/br.png"),
+        'N': tk.PhotoImage(file="images/wn.png"),
+        'n': tk.PhotoImage(file="images/bn.png"),
+        'B': tk.PhotoImage(file="images/wb.png"),
+        'b': tk.PhotoImage(file="images/bb.png"),
+        'Q': tk.PhotoImage(file="images/wq.png"),
+        'q': tk.PhotoImage(file="images/bq.png"),
+        'K': tk.PhotoImage(file="images/wk.png"),
+        'k': tk.PhotoImage(file="images/bk.png")
+    }
 
+# Draw the chessboard and pieces
+def draw_board():
+    canvas.delete("all")  # Clear any previous board
+    for row in range(8):
+        for col in range(8):
+            # Draw the squares (alternating colors)
+            color = "white" if (row + col) % 2 == 0 else "black"
+            x1 = col * square_size
+            y1 = row * square_size
+            x2 = (col + 1) * square_size
+            y2 = (row + 1) * square_size
+            canvas.create_rectangle(x1, y1, x2, y2, fill=color)
+            
+            # Draw the pieces
+            piece = board.piece_at(chess.square(col, 7 - row))  # board is reversed vertically
+            if piece:
+                piece_image = piece_images.get(piece.symbol())
+                if piece_image:
+                    canvas.create_image(x1 + square_size // 2, y1 + square_size // 2, image=piece_image)
 
-class Knight(ChessPiece):
-    def __init__(self, color):
-        symbol = "♘" if color == "white" else "♞"
-        super().__init__(color, "knight", symbol)
+# Handle the click to make a move
+selected_square = None
 
+def on_square_click(event):
+    global selected_square
+    row = event.y // square_size
+    col = event.x // square_size
+    clicked_square = chess.square(col, 7 - row)
 
-class Bishop(ChessPiece):
-    def __init__(self, color):
-        symbol = "♗" if color == "white" else "♝"
-        super().__init__(color, "bishop", symbol)
+    if selected_square is None:
+        # Select a piece
+        if board.piece_at(clicked_square):
+            selected_square = clicked_square
+    else:
+        # Make a move
+        move = chess.Move(selected_square, clicked_square)
+        if move in board.legal_moves:
+            board.push(move)
+        selected_square = None
 
+    draw_board()  # Redraw the board with updated pieces
 
-class Queen(ChessPiece):
-    def __init__(self, color):
-        symbol = "♕" if color == "white" else "♛"
-        super().__init__(color, "queen", symbol)
+# Bind mouse click event to the board
+canvas.bind("<Button-1>", on_square_click)
 
+# Load piece images and draw the initial board
+load_images()
+draw_board()
 
-class Pawn(ChessPiece):
-    def __init__(self, color):
-        symbol = "♙" if color == "white" else "♟"
-        super().__init__(color, "pawn", symbol)
-
-    def can_move(self, start, end, board):
-        start_row, start_col = start
-        end_row, end_col = end
-
-        # Pawns can move one square forward by default
-        if self.color == "white":
-            # Move one square forward if the square is empty
-            if end_col == start_col and end_row == start_row - 1 and not isinstance(board[end_row][end_col], ChessPiece):
-                return True
-            # On first move, pawns can move two squares forward if both squares are empty
-            if not self.has_moved and end_col == start_col and end_row == start_row - 2 and not isinstance(board[end_row][end_col], ChessPiece) and not isinstance(board[start_row - 1][start_col], ChessPiece):
-                return True
-        elif self.color == "black":
-            # Move one square forward if the square is empty
-            if end_col == start_col and end_row == start_row + 1 and not isinstance(board[end_row][end_col], ChessPiece):
-                return True
-            # On first move, pawns can move two squares forward if both squares are empty
-            if not self.has_moved and end_col == start_col and end_row == start_row + 2 and not isinstance(board[end_row][end_col], ChessPiece) and not isinstance(board[start_row + 1][start_col], ChessPiece):
-                return True
-        return False
-
-
-
-class ChessBoard:
-    def __init__(self):
-        self.board = [[None for _ in range(8)] for _ in range(8)]
-        self.white_king_position = (7, 4)  # Starting position of white king
-        self.black_king_position = (0, 4)  # Starting position of black king
-        self.castling_rights = {
-            "white": {"kingside": True, "queenside": True},
-            "black": {"kingside": True, "queenside": True},
-        }
-        self.en_passant_target = None
-        self.setup_board()
-
-    def setup_board(self):
-        # Place major pieces for both sides
-        self.board[0] = [
-            Rook("black"), Knight("black"), Bishop("black"), Queen("black"),
-            King("black"), Bishop("black"), Knight("black"), Rook("black")
-        ]
-        self.board[7] = [
-            Rook("white"), Knight("white"), Bishop("white"), Queen("white"),
-            King("white"), Bishop("white"), Knight("white"), Rook("white")
-        ]
-        
-        # Place pawns for both sides
-        self.board[1] = [Pawn("black") for _ in range(8)]
-        self.board[6] = [Pawn("white") for _ in range(8)]
-
-    def display(self):
-        print("   a    b    c    d    e    f    g    h  ")
-        print(" +--------------------------------------+")
-        row_num = 8
-        for row in self.board:
-            print(f"{row_num}|", end="")
-            for square in row:
-                if square:
-                    print(f"  {square}  ", end="")
-                else:
-                    print("  .  ", end="")
-            print(f"| {row_num}")
-            row_num -= 1
-        print(" +--------------------------------------+")
-
-    def is_valid_move(self, start, end, color):
-        start_row, start_col = start
-        end_row, end_col = end
-        piece = self.board[start_row][start_col]
-
-        if piece and piece.color == color:
-            return piece.can_move(start, end, self.board)
-        return False
-
-    def move_piece(self, start, end, color):
-        start_row, start_col = start
-        end_row, end_col = end
-        piece = self.board[start_row][start_col]
-
-        if isinstance(piece, Pawn):
-            if piece.can_move(start, end, self.board):
-                self.board[end_row][end_col] = piece
-                self.board[start_row][start_col] = None
-                piece.has_moved = True
-                return True
-        elif isinstance(piece, King):
-            # Implement king's movement logic here if necessary
-            pass
-
-        # Add more movement logic for other pieces
-        return False
-
-    def is_castling_move(self, start, end, color):
-        # Castling can only occur if the king and rook haven't moved
-        pass
-
-    def castle(self, start, end, color):
-        pass
-
-
-
-class ChessGame:
-    def __init__(self):
-        self.board = ChessBoard()
-        self.current_turn = "white"
-
-    def play(self):
-        while True:
-            self.board.display()
-            print(f"{self.current_turn.capitalize()}'s turn")
-            start = input("Enter the start position (e.g. 'a2'): ")
-            end = input("Enter the end position (e.g. 'a3'): ")
-
-            start = self.position_to_coords(start)
-            end = self.position_to_coords(end)
-
-            if start and end:
-                piece = self.board.board[start[0]][start[1]]
-                if piece and piece.color == self.current_turn:
-                    if self.board.move_piece(start, end, self.current_turn):
-                        self.toggle_turn()
-                    else:
-                        print("Invalid move! Try again.")
-                else:
-                    print("Invalid piece selection. Try again.")
-            else:
-                print("Invalid input format. Please use chess notation.")
-
-    def toggle_turn(self):
-        # Switch turns between white and black
-        self.current_turn = "black" if self.current_turn == "white" else "white"
-
-    def position_to_coords(self, position):
-        try:
-            col, row = position[0], position[1]
-            col = ord(col.lower()) - ord('a')
-            row = 8 - int(row)
-            if 0 <= col < 8 and 0 <= row < 8:
-                return row, col
-            else:
-                return None
-        except (ValueError, IndexError):
-            return None
-
-
-if __name__ == "__main__":
-    game = ChessGame()
-    game.play()
+# Start the Tkinter event loop
+root.mainloop()
