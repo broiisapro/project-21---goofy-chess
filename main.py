@@ -41,13 +41,17 @@ def draw_board():
     for row in range(8):
         for col in range(8):
             # Draw the squares (alternating colors)
-            color = "white" if (row + col) % 2 == 0 else "black"
+            color = "#A9D08E" if (row + col) % 2 == 0 else "#D3D3D3"  # light green, light gray
             x1 = col * square_size
             y1 = row * square_size
             x2 = (col + 1) * square_size
             y2 = (row + 1) * square_size
-            canvas.create_rectangle(x1, y1, x2, y2, fill=color)
+            canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="black")
             
+            # Highlight the selected square
+            if selected_square and selected_square == chess.square(col, 7 - row):
+                canvas.create_rectangle(x1, y1, x2, y2, outline="red", width=4)
+
             # Draw the pieces
             piece = board.piece_at(chess.square(col, 7 - row))  # board is reversed vertically
             if piece:
